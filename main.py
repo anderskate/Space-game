@@ -10,12 +10,18 @@ from curses_tools import (
     get_frame_size,
 )
 
+from physics import update_speed
+
 from space_garbage import fly_garbage
 
 
 TIC_TIMEOUT = 0.1
 
 coroutines = []
+
+spaceship_frame = ''
+
+row_speed, column_speed = (0, 0)
 
 
 async def sleep(tics=1):
@@ -24,49 +30,73 @@ async def sleep(tics=1):
         await asyncio.sleep(0)
 
 
-async def animate_spaceship(canvas, row, column, frames):
+async def animate_spaceship(frames):
+    """Define the current frame for a spaceship.
+
+    Params:
+        * frames: tuple with images of a spaceship
+    """
+    global spaceship_frame
+    while True:
+        for frame in itertools.cycle(frames):
+            spaceship_frame = frame
+            await sleep()
+
+
+async def run_spaceship(canvas, row, column):
     """Determine the position of the spaceship and display it.
 
     Params:
         * canvas: window object from curses
         * row: number of row
         * column: number of column
-        * frames: tuple with images of a spaceship
     """
 
     # Define height and width of the canvas
     canvas_height, canvas_width = canvas.getmaxyx()
 
+    global spaceship_frame, row_speed, column_speed
+
     while True:
-        for frame in itertools.cycle(frames):
-            # Define height and width of the frame
-            frame_height, frame_width = get_frame_size(frame)
-            rows_direction, columns_direction, _ = read_controls(canvas)
+        # Define height and width of the frame
+        frame_height, frame_width = get_frame_size(spaceship_frame)
+        rows_direction, columns_direction, _ = read_controls(canvas)
 
-            # Subtract 1 so as not to erase the borders
-            row_number = min(
-                row + rows_direction,
-                canvas_height - frame_height - 1,
-            )
-            column_number = min(
-                column + columns_direction,
-                canvas_width - frame_width - 1,
-            )
+        row_speed, column_speed = update_speed(
+            row_speed,
+            column_speed,
+            rows_direction,
+            columns_direction,
+        )
 
-            # Set 1 so as not to erase the borders
-            if row + rows_direction > 0:
-                row = row_number
-            else:
-                row = 1
+        # Subtract 1 so as not to erase the borders
+        row_number = min(
+            row + row_speed,
+            canvas_height - frame_height - 1,
+        )
+        column_number = min(
+            column + column_speed,
+            canvas_width - frame_width - 1,
+        )
 
-            if column + columns_direction > 0:
-                column = column_number
-            else:
-                column = 1
+        # Set 1 so as not to erase the borders
 
-            draw_frame(canvas, row, column, frame)
-            await sleep()
-            draw_frame(canvas, row, column, frame, negative=True)
+        if row + row_speed > 0:
+            row = row_number
+        else:
+            row = 1
+
+        if column + column_speed > 0:
+            column = column_number
+        else:
+            column = 1
+
+        draw_frame(canvas, row, column, spaceship_frame)
+        # Stores the last frame of the animation that was drawn,
+        # and which you want to erase later
+        last_frame = spaceship_frame
+        await sleep()
+        draw_frame(canvas, row, column, last_frame, negative=True)
 
 
 async def fire(canvas, start_row, start_column, rows_speed=-0.3,
@@ -201,11 +231,14 @@ def draw(canvas):
 
     center_row_of_canvas = canvas_height // 2
     center_column_of_canvas = canvas_width // 2
-    control_spaceship_coroutine = animate_spaceship(
+
+    animate_spaceship_coroutine = animate_spaceship(frames)
+    coroutines.append(animate_spaceship_coroutine)
+
+    control_spaceship_coroutine = run_spaceship(
         canvas,
         center_row_of_canvas,
         center_column_of_canvas,
-        frames,
     )
     coroutines.append(control_spaceship_coroutine)
 
