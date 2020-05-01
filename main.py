@@ -60,7 +60,7 @@ async def run_spaceship(canvas, row, column):
     while True:
         # Define height and width of the frame
         frame_height, frame_width = get_frame_size(spaceship_frame)
-        rows_direction, columns_direction, _ = read_controls(canvas)
+        rows_direction, columns_direction, space_pressed = read_controls(canvas)
 
         row_speed, column_speed = update_speed(
             row_speed,
@@ -80,7 +80,6 @@ async def run_spaceship(canvas, row, column):
         )
 
         # Set 1 so as not to erase the borders
-
         if row + row_speed > 0:
             row = row_number
         else:
@@ -90,6 +89,11 @@ async def run_spaceship(canvas, row, column):
             column = column_number
         else:
             column = 1
+
+        # Make a gun shot
+        if space_pressed:
+            fire_coroutine = fire(canvas, row, column, rows_speed=-2)
+            coroutines.append(fire_coroutine)
 
         draw_frame(canvas, row, column, spaceship_frame)
         # Stores the last frame of the animation that was drawn,
