@@ -32,6 +32,16 @@ spaceship_frame = ''
 row_speed, column_speed = (0, 0)
 
 
+async def show_gameover(canvas):
+    """Display the end of the game."""
+    gameover_frame = get_frame('gameover.txt')
+    canvas_height, canvas_width = canvas.getmaxyx()
+    center_row, center_column = (canvas_height // 4, canvas_width // 4)
+    while True:
+        draw_frame(canvas, center_row, center_column, gameover_frame)
+        await asyncio.sleep(0)
+
+
 async def sleep(tics=1):
     """Implement a wait before executing other coroutines."""
     for _ in range(tics):
@@ -109,6 +119,12 @@ async def run_spaceship(canvas, row, column):
         last_frame = spaceship_frame
         await sleep()
         draw_frame(canvas, row, column, last_frame, negative=True)
+
+        for obstacle in obstacles:
+            if obstacle.has_collision(row, column):
+                gameover_coroutine = show_gameover(canvas)
+                coroutines.append(gameover_coroutine)
+                return
 
 
 async def fire(canvas, start_row, start_column, rows_speed=-0.3,
