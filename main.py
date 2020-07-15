@@ -133,6 +133,12 @@ async def fire(canvas, start_row, start_column, rows_speed=-0.3,
     while 0 < row < max_row and 0 < column < max_column:
         canvas.addstr(round(row), round(column), symbol)
         await asyncio.sleep(0)
+
+        # Check for a collision of fire with an obstacle
+        for obstacle in obstacles:
+            if obstacle.has_collision(row, column):
+                return
+
         canvas.addstr(round(row), round(column), ' ')
         row += rows_speed
         column += columns_speed
