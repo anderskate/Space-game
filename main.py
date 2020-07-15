@@ -16,6 +16,8 @@ from obstacles import show_obstacles
 
 from obstacles import Obstacle
 
+from explosion import explode
+
 
 TIC_TIMEOUT = 0.1
 
@@ -218,6 +220,7 @@ async def fly_garbage(canvas, column, garbage_frame, speed=0.5):
         if obstacle in obstacles_in_last_collisions:
             obstacles_in_last_collisions.remove(obstacle)
             obstacles.remove(obstacle)
+            await explode(canvas, row, column)
             return
 
     # Remove an obstacle flying over the edge
