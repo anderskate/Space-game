@@ -12,12 +12,16 @@ from curses_tools import (
 
 from physics import update_speed
 
-from space_garbage import fly_garbage
+from obstacles import show_obstacles
+
+from obstacles import Obstacle
 
 
 TIC_TIMEOUT = 0.1
 
 coroutines = []
+
+obstacles = []
 
 spaceship_frame = ''
 
@@ -175,6 +179,36 @@ async def fill_orbit_with_garbage(canvas, canvas_width, trash_frames):
         await sleep(10)
 
 
+async def fly_garbage(canvas, column, garbage_frame, speed=0.5):
+    """Animate garbage, flying from top to bottom.
+
+    Сolumn position will stay same, as specified on start.
+    """
+    global obstacles
+
+    rows_number, columns_number = canvas.getmaxyx()
+
+    column = max(column, 0)
+    column = min(column, columns_number - 1)
+
+    row = 0
+
+    frame_height, frame_width = get_frame_size(garbage_frame)
+    obstacle = Obstacle(row, column, frame_height, frame_width)
+    obstacles.append(obstacle)
+
+    await sleep(1)
+    while row < rows_number:
+        draw_frame(canvas, row, column, garbage_frame)
+        await asyncio.sleep(0)
+        draw_frame(canvas, row, column, garbage_frame, negative=True)
+        row += speed
+        obstacle.row += speed
+
+    # Remove an obstacle flying over the edge
+    obstacles.remove(obstacle)
+
+
 def create_stars(canvas, canvas_height, canvas_width, count=50):
     """Create a stars with random coordinates."""
     symbols = '+*.:'
@@ -214,6 +248,7 @@ def draw(canvas):
     window_center_coordinates = (canvas_height // 2, canvas_width // 2)
 
     global coroutines
+    global obstacles
 
     coroutine_fire = fire(canvas, *window_center_coordinates)
     coroutines.append(coroutine_fire)
@@ -252,6 +287,9 @@ def draw(canvas):
         trash_frames,
     )
     coroutines.append(fill_orbit_with_garbage_coroutine)
+
+    obstacles_coroutine = show_obstacles(canvas, obstacles)
+    coroutines.append(obstacles_coroutine)
 
     while True:
         for coroutine in coroutines.copy():
