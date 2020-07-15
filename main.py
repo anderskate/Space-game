@@ -23,6 +23,8 @@ coroutines = []
 
 obstacles = []
 
+obstacles_in_last_collisions = []
+
 spaceship_frame = ''
 
 row_speed, column_speed = (0, 0)
@@ -137,6 +139,7 @@ async def fire(canvas, start_row, start_column, rows_speed=-0.3,
         # Check for a collision of fire with an obstacle
         for obstacle in obstacles:
             if obstacle.has_collision(row, column):
+                obstacles_in_last_collisions.append(obstacle)
                 return
 
         canvas.addstr(round(row), round(column), ' ')
@@ -210,6 +213,12 @@ async def fly_garbage(canvas, column, garbage_frame, speed=0.5):
         draw_frame(canvas, row, column, garbage_frame, negative=True)
         row += speed
         obstacle.row += speed
+
+        # Remove garbage that has encountered fire
+        if obstacle in obstacles_in_last_collisions:
+            obstacles_in_last_collisions.remove(obstacle)
+            obstacles.remove(obstacle)
+            return
 
     # Remove an obstacle flying over the edge
     obstacles.remove(obstacle)
