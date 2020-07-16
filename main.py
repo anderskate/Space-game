@@ -23,6 +23,8 @@ TIC_TIMEOUT = 0.1
 
 YEAR_CREATION_LASER_GUN = 2020
 
+DEBUG_MODE = False
+
 coroutines = []
 
 obstacles = []
@@ -365,8 +367,9 @@ def draw(canvas):
     )
     coroutines.append(fill_orbit_with_garbage_coroutine)
 
-    obstacles_coroutine = show_obstacles(canvas, obstacles)
-    coroutines.append(obstacles_coroutine)
+    if DEBUG_MODE:
+        obstacles_coroutine = show_obstacles(canvas, obstacles)
+        coroutines.append(obstacles_coroutine)
 
     count_years_coroutine = count_years()
     coroutines.append(count_years_coroutine)
