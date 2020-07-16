@@ -12,14 +12,16 @@ from curses_tools import (
 
 from physics import update_speed
 
-from obstacles import show_obstacles
-
-from obstacles import Obstacle
+from obstacles import show_obstacles, Obstacle
 
 from explosion import explode
 
+from game_scenario import get_garbage_delay_tics, PHRASES
+
 
 TIC_TIMEOUT = 0.1
+
+YEAR_CREATION_LASER_GUN = 2020
 
 coroutines = []
 
@@ -30,6 +32,38 @@ obstacles_in_last_collisions = []
 spaceship_frame = ''
 
 row_speed, column_speed = (0, 0)
+
+year = 1957
+
+
+async def count_years():
+    """Count years passed."""
+    global year
+    while True:
+        year += 1
+        await sleep(2)
+
+
+async def display_info_about_the_current_year(canvas):
+    """Display current year information."""
+    global year
+
+    while True:
+        try:
+            draw_frame(canvas, 0, 0, f'Year - {year}: {PHRASES[year]}')
+        except KeyError:
+            try:
+                draw_frame(
+                    canvas,
+                    0,
+                    0,
+                    f'Year - {year - 1}: {PHRASES[year - 1]}',
+                    negative=True
+                )
+            except KeyError:
+                pass
+            draw_frame(canvas, 0, 0, f'Year - {year}')
+        await asyncio.sleep(0)
 
 
 async def show_gameover(canvas):
@@ -73,12 +107,14 @@ async def run_spaceship(canvas, row, column):
     # Define height and width of the canvas
     canvas_height, canvas_width = canvas.getmaxyx()
 
-    global spaceship_frame, row_speed, column_speed
+    global spaceship_frame, row_speed, column_speed, year
 
     while True:
         # Define height and width of the frame
         frame_height, frame_width = get_frame_size(spaceship_frame)
-        rows_direction, columns_direction, space_pressed = read_controls(canvas)
+        rows_direction, columns_direction, space_pressed = read_controls(
+            canvas
+        )
 
         row_speed, column_speed = update_speed(
             row_speed,
@@ -108,8 +144,9 @@ async def run_spaceship(canvas, row, column):
         else:
             column = 1
 
-        # Make a gun shot
-        if space_pressed:
+        # Make a gun shot if the user presses a space
+        # and a year 2020 or more
+        if space_pressed and year >= YEAR_CREATION_LASER_GUN:
             fire_coroutine = fire(canvas, row, column, rows_speed=-2)
             coroutines.append(fire_coroutine)
 
@@ -194,16 +231,21 @@ async def blink(canvas, row, column, symbol='*', offset_tics=0):
 
 async def fill_orbit_with_garbage(canvas, canvas_width, trash_frames):
     """Add random garbage to canvas"""
+    global year
     while True:
-        random_frame = random.choice(trash_frames)
-        _, frame_width = get_frame_size(random_frame)
+        garbage_frequency = get_garbage_delay_tics(year)
+        if garbage_frequency:
+            random_frame = random.choice(trash_frames)
+            _, frame_width = get_frame_size(random_frame)
 
-        # To prevent garbage from flying outside the borders,
-        # subtract 1 for the border and frame width
-        random_column = random.randint(1, canvas_width - frame_width - 1)
+            # To prevent garbage from flying outside the borders,
+            # subtract 1 for the border and frame width
+            random_column = random.randint(1, canvas_width - frame_width - 1)
 
-        coroutines.append(fly_garbage(canvas, random_column, random_frame))
-        await sleep(10)
+            coroutines.append(fly_garbage(canvas, random_column, random_frame))
+            await sleep(garbage_frequency)
+        else:
+            await asyncio.sleep(0)
 
 
 async def fly_garbage(canvas, column, garbage_frame, speed=0.5):
@@ -275,14 +317,15 @@ def get_frame(file):
 
 def draw(canvas):
     """The main function of displaying all elements on the canvas."""
+    global coroutines, obstacles
+
     canvas.border()
     canvas.nodelay(True)
     curses.curs_set(False)
     canvas_height, canvas_width = canvas.getmaxyx()
     window_center_coordinates = (canvas_height // 2, canvas_width // 2)
 
-    global coroutines
-    global obstacles
+    canvas_for_phrase = canvas.derwin(canvas_height - 2, canvas_width // 2)
 
     coroutine_fire = fire(canvas, *window_center_coordinates)
     coroutines.append(coroutine_fire)
@@ -324,6 +367,14 @@ def draw(canvas):
 
     obstacles_coroutine = show_obstacles(canvas, obstacles)
     coroutines.append(obstacles_coroutine)
+
+    count_years_coroutine = count_years()
+    coroutines.append(count_years_coroutine)
+
+    year_info_coroutine = display_info_about_the_current_year(
+        canvas_for_phrase
+    )
+    coroutines.append(year_info_coroutine)
 
     while True:
         for coroutine in coroutines.copy():
