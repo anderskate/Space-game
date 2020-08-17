@@ -94,7 +94,7 @@ async def animate_spaceship(frames):
     while True:
         for frame in itertools.cycle(frames):
             spaceship_frame = frame
-            await sleep()
+            await sleep(2)
 
 
 async def run_spaceship(canvas, row, column):
@@ -136,15 +136,8 @@ async def run_spaceship(canvas, row, column):
         )
 
         # Set 1 so as not to erase the borders
-        if row + row_speed > 0:
-            row = row_number
-        else:
-            row = 1
-
-        if column + column_speed > 0:
-            column = column_number
-        else:
-            column = 1
+        row = max(row_number, 1)
+        column = max(column_number, 1)
 
         # Make a gun shot if the user presses a space
         # and a year 2020 or more
@@ -160,7 +153,7 @@ async def run_spaceship(canvas, row, column):
         draw_frame(canvas, row, column, last_frame, negative=True)
 
         for obstacle in obstacles:
-            if obstacle.has_collision(row, column):
+            if obstacle.has_collision(row, column, frame_height, frame_width):
                 gameover_coroutine = show_gameover(canvas)
                 coroutines.append(gameover_coroutine)
                 return
@@ -236,18 +229,20 @@ async def fill_orbit_with_garbage(canvas, canvas_width, trash_frames):
     global year
     while True:
         garbage_frequency = get_garbage_delay_tics(year)
-        if garbage_frequency:
-            random_frame = random.choice(trash_frames)
-            _, frame_width = get_frame_size(random_frame)
 
-            # To prevent garbage from flying outside the borders,
-            # subtract 1 for the border and frame width
-            random_column = random.randint(1, canvas_width - frame_width - 1)
+        await asyncio.sleep(0)
 
-            coroutines.append(fly_garbage(canvas, random_column, random_frame))
-            await sleep(garbage_frequency)
-        else:
-            await asyncio.sleep(0)
+        if not garbage_frequency:
+            continue
+        random_frame = random.choice(trash_frames)
+        _, frame_width = get_frame_size(random_frame)
+
+        # To prevent garbage from flying outside the borders,
+        # subtract 1 for the border and frame width
+        random_column = random.randint(1, canvas_width - frame_width - 1)
+
+        coroutines.append(fly_garbage(canvas, random_column, random_frame))
+        await sleep(garbage_frequency)
 
 
 async def fly_garbage(canvas, column, garbage_frame, speed=0.5):
@@ -325,12 +320,10 @@ def draw(canvas):
     canvas.nodelay(True)
     curses.curs_set(False)
     canvas_height, canvas_width = canvas.getmaxyx()
-    window_center_coordinates = (canvas_height // 2, canvas_width // 2)
-
+    center_row_of_canvas, center_column_of_canvas = (
+        canvas_height // 2, canvas_width // 2
+    )
     canvas_for_phrase = canvas.derwin(canvas_height - 2, canvas_width // 2)
-
-    coroutine_fire = fire(canvas, *window_center_coordinates)
-    coroutines.append(coroutine_fire)
 
     coroutines += create_stars(canvas, canvas_height, canvas_width, 100)
 
@@ -347,37 +340,17 @@ def draw(canvas):
         get_frame('trash_xl.txt'),
     )
 
-    center_row_of_canvas = canvas_height // 2
-    center_column_of_canvas = canvas_width // 2
-
-    animate_spaceship_coroutine = animate_spaceship(frames)
-    coroutines.append(animate_spaceship_coroutine)
-
-    control_spaceship_coroutine = run_spaceship(
-        canvas,
-        center_row_of_canvas,
-        center_column_of_canvas,
-    )
-    coroutines.append(control_spaceship_coroutine)
-
-    fill_orbit_with_garbage_coroutine = fill_orbit_with_garbage(
-        canvas,
-        canvas_width,
-        trash_frames,
-    )
-    coroutines.append(fill_orbit_with_garbage_coroutine)
+    coroutines += [
+        fire(canvas, center_row_of_canvas, center_column_of_canvas),
+        animate_spaceship(frames),
+        run_spaceship(canvas, center_row_of_canvas, center_column_of_canvas),
+        fill_orbit_with_garbage(canvas, canvas_width, trash_frames),
+        count_years(),
+        display_info_about_the_current_year(canvas_for_phrase),
+    ]
 
     if DEBUG_MODE:
-        obstacles_coroutine = show_obstacles(canvas, obstacles)
-        coroutines.append(obstacles_coroutine)
-
-    count_years_coroutine = count_years()
-    coroutines.append(count_years_coroutine)
-
-    year_info_coroutine = display_info_about_the_current_year(
-        canvas_for_phrase
-    )
-    coroutines.append(year_info_coroutine)
+        coroutines += [show_obstacles(canvas, obstacles)]
 
     while True:
         for coroutine in coroutines.copy():
